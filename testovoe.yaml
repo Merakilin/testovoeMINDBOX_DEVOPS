@@ -1,0 +1,55 @@
+apiVersion: apps/v1 # Используем последнюю версию API для Deployments
+kind: Deployment
+metadata:
+  name: my-app-deployment # Имя деплоймента
+spec:
+  replicas: 4 # Четыре реплики соответствуют пиковой нагрузке согласно тестированию
+  strategy:
+    type: RollingUpdate # Обеспечиваем плавное обновление подов
+    rollingUpdate:
+      maxSurge: 1 # Максимальное количество дополнительных подов во время обновления
+      maxUnavailable: 0 # Количество одновременно отключаемых подов должно быть минимальным
+  selector:
+    matchLabels:
+      app: my-app # Метка селектора подов
+  template:
+    metadata:
+      labels:
+        app: my-app # Соответствует меткам селектора
+    spec:
+      containers:
+      - name: my-app-container # Название контейнера
+        image: your-image-repo/my-app:v1 # Ваш образ Docker
+        resources:
+          requests: # Запрашиваемые ресурсы, необходимые для запуска пода
+            cpu: "0.1" # Минимально необходимое значение CPU
+            memory: "128Mi" # Минимальная память
+          limits: # Ограничение максимального потребляемого ресурса
+            cpu: "0.5" # Лишний запас для первой нагрузки
+            memory: "256Mi" # Небольшое увеличение лимита памяти для стабильности
+        readinessProbe: # Проверяем готовность контейнера отвечать на запросы
+          httpGet:
+            path: /healthz # Точка проверки здоровья
+            port: 8080
+          initialDelaySeconds: 10 # Даем контейнеру достаточно времени для старта
+          periodSeconds: 10 # Периодичность проверок готовности
+        livenessProbe: # Проверяем жизнеспособность контейнера
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 15 # Ждем немного дольше, чем readinessProbe
+          periodSeconds: 10
+---
+# Создаем Service, чтобы балансировать нагрузку между подами
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-app-service
+spec:
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
+  selector:
+    app: my-app
+  type: ClusterIP # Тип сервиса внутри кластера
