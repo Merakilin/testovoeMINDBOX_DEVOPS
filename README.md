@@ -1,0 +1,1 @@
+# testovoeMINDBOX_DEVOPS
